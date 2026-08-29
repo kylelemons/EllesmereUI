@@ -647,8 +647,8 @@ ns.BlockFactories.clock = function(blockCfg, slot, content, barCtx)
         elseif lower:find("normal") then return "N"
         elseif lower:find("timewalking") then return "TW"
         elseif lower:find("story") then return "Story"
-        elseif lower:find("world") then return "World"
-        elseif lower:find("delve") then return "Delve"
+        elseif lower:find("world") then return "W"
+        elseif lower:find("delve") then return "DLV"
         end
         return diffName
     end
