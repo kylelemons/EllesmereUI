@@ -340,7 +340,8 @@ ns.BlockFactories.clock = function(blockCfg, slot, content, barCtx)
     local inst = { cfg = blockCfg, slot = slot, content = content, ctx = barCtx }
     inst.key = InstKey(barCtx, blockCfg)
     inst.events = { "PLAYER_UPDATE_RESTING", "PLAYER_REGEN_ENABLED",
-                    "MAIL_INBOX_UPDATE", "UPDATE_PENDING_MAIL" }
+                    "MAIL_INBOX_UPDATE", "UPDATE_PENDING_MAIL",
+                    "UPDATE_INSTANCE_INFO", "ENCOUNTER_END", "BOSS_KILL" }
 
     local infoTimer, infoIndex = 0, 1
     local lastTimeStr
@@ -637,17 +638,9 @@ ns.BlockFactories.clock = function(blockCfg, slot, content, barCtx)
         end
     end
 
-    inst.eventFrame = MakeEventFrame(inst, function(self, event)
-        if event == "PLAYER_REGEN_ENABLED" then
-            if needsResize then needsResize = false; self:Refresh() end
-        else
-            self:Refresh()
-        end
-    end)
-
-    clockTextFrame:SetScript("OnEnter", function()
-        isMouseOver = true
-        ApplyClockColor()
+    local function ShowClockTooltip()
+        if not isMouseOver then return end
+        if RequestRaidInfo then RequestRaidInfo() end
         -- Tooltips are all-white by design (no accent tinting).
         local ar, ag, ab = 1, 1, 1
         ns.Tip_Begin(clockTextFrame)
@@ -710,6 +703,26 @@ ns.BlockFactories.clock = function(blockCfg, slot, content, barCtx)
         ns.Tip_AddDouble(L["RIGHT_CLICK"], L["TOGGLE_CLOCK"], 1, 1, 1, r, g, b)
         ns.Tip_AddDouble(L["SHIFT_MIDDLE_CLICK"], L["RELOAD_UI"], 1, 1, 1, r, g, b)
         ns.Tip_Show()
+    end
+
+    inst.eventFrame = MakeEventFrame(inst, function(self, event)
+        if event == "PLAYER_REGEN_ENABLED" then
+            if needsResize then needsResize = false; self:Refresh() end
+        elseif event == "ENCOUNTER_END" or event == "BOSS_KILL" then
+            if RequestRaidInfo then RequestRaidInfo() end
+        elseif event == "UPDATE_INSTANCE_INFO" then
+            if isMouseOver then
+                ShowClockTooltip()
+            end
+        else
+            self:Refresh()
+        end
+    end)
+
+    clockTextFrame:SetScript("OnEnter", function()
+        isMouseOver = true
+        ApplyClockColor()
+        ShowClockTooltip()
     end)
     clockTextFrame:SetScript("OnLeave", function()
         isMouseOver = false
