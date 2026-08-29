@@ -638,6 +638,19 @@ ns.BlockFactories.clock = function(blockCfg, slot, content, barCtx)
         end
     end
 
+    local function ShortenDifficulty(diffName)
+        if not diffName or diffName == "" then return "" end
+        local lower = diffName:lower()
+        if lower:find("mythic") then return "M"
+        elseif lower:find("heroic") then return "H"
+        elseif lower:find("looking for raid") or lower:find("raid finder") or lower:find("lfr") then return "LFR"
+        elseif lower:find("normal") then return "N"
+        elseif lower:find("timewalking") then return "TW"
+        elseif lower:find("story") then return "Story"
+        end
+        return diffName
+    end
+
     local function ShowClockTooltip()
         if not isMouseOver then return end
         if RequestRaidInfo then RequestRaidInfo() end
@@ -666,14 +679,13 @@ ns.BlockFactories.clock = function(blockCfg, slot, content, barCtx)
                     if showDetails then
                         local total = tonumber(numEncounters) or 0
                         local progress = tonumber(encounterProgress) or 0
-                        if difficultyName and difficultyName ~= "" then
-                            if total > 0 then
-                                displayName = format("%s (%s %d/%d)", name, difficultyName, progress, total)
-                            else
-                                displayName = format("%s (%s)", name, difficultyName)
-                            end
+                        local diffShort = ShortenDifficulty(difficultyName)
+                        if total > 0 and diffShort ~= "" then
+                            displayName = format("%s (%s %d/%d)", name, diffShort, progress, total)
                         elseif total > 0 then
                             displayName = format("%s (%d/%d)", name, progress, total)
+                        elseif diffShort ~= "" then
+                            displayName = format("%s (%s)", name, diffShort)
                         end
                     end
                     ns.Tip_AddDouble(displayName, ns.FormatTimeLeft(reset), 1, 1, 1, 0.6, 0.6, 0.6)
