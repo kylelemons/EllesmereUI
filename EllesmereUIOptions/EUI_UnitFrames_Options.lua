@@ -1615,6 +1615,13 @@ initFrame:SetScript("OnEvent", function(self)
             ppPreviewFS = ppOvr:CreateFontString(nil, "OVERLAY")
             SetPVFont(ppPreviewFS, PREVIEW_FONT, 9)
             ppPreviewFS:Hide()
+
+            -- Boss Health Marker spark preview
+            local bossSpark = power:CreateTexture(nil, "OVERLAY", nil, 7)
+            bossSpark:SetColorTexture(1, 0.25, 0.25, 0.95)
+            bossSpark:SetSize(2, powerH > 0 and powerH or 6)
+            bossSpark:Hide()
+            pf._bossSpark = bossSpark
         end
 
         -- Bar texture: applied to the fill textures directly (preview uses plain Frames, not StatusBars)
@@ -2730,6 +2737,24 @@ initFrame:SetScript("OnEvent", function(self)
                         pf._powerFill:SetPoint("BOTTOMLEFT", power, "BOTTOMLEFT", 0, 0)
                     end
                     PP.Width(pf._powerFill, math.floor(pvPw * (_previewPowerPct or 0.85) + 0.5))
+                end
+
+                if pf._bossSpark then
+                    local showSpark = (unitKey == "player") and (s.bossPacingEnabled == true) and (pvPpPos ~= "none") and (ph > 0)
+                    if showSpark then
+                        local sparkPct = 0.65
+                        local sparkX = math.floor(pvPw * sparkPct + 0.5)
+                        pf._bossSpark:SetSize(2, ph)
+                        pf._bossSpark:ClearAllPoints()
+                        if s.powerReverseFill then
+                            pf._bossSpark:SetPoint("CENTER", power, "RIGHT", -sparkX, 0)
+                        else
+                            pf._bossSpark:SetPoint("CENTER", power, "LEFT", sparkX, 0)
+                        end
+                        pf._bossSpark:Show()
+                    else
+                        pf._bossSpark:Hide()
+                    end
                 end
 
                 -- Power bar opacity: the fill's region alpha is set AFTER PV_FillColor
