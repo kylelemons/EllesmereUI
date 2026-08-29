@@ -664,10 +664,26 @@ ns.BlockFactories.clock = function(blockCfg, slot, content, barCtx)
         if numInstances > 0 then
             ns.Tip_AddLine(" ")
             ns.Tip_AddLine(L["SAVED_INSTANCES"], 1, 0.82, 0)
+            local d = D()
+            local showDetails = (d.lockoutDetails == true)
             for i = 1, numInstances do
-                local name, _, reset, _, locked, extended = GetSavedInstanceInfo(i)
+                local name, _, reset, _, locked, extended, _, _, _, difficultyName, numEncounters, encounterProgress = GetSavedInstanceInfo(i)
                 if locked or extended then
-                    ns.Tip_AddDouble(name, ns.FormatTimeLeft(reset), 1, 1, 1, 0.6, 0.6, 0.6)
+                    local displayName = name
+                    if showDetails then
+                        local total = tonumber(numEncounters) or 0
+                        local progress = tonumber(encounterProgress) or 0
+                        if difficultyName and difficultyName ~= "" then
+                            if total > 0 then
+                                displayName = format("%s (%s %d/%d)", name, difficultyName, progress, total)
+                            else
+                                displayName = format("%s (%s)", name, difficultyName)
+                            end
+                        elseif total > 0 then
+                            displayName = format("%s (%d/%d)", name, progress, total)
+                        end
+                    end
+                    ns.Tip_AddDouble(displayName, ns.FormatTimeLeft(reset), 1, 1, 1, 0.6, 0.6, 0.6)
                 end
             end
         end
