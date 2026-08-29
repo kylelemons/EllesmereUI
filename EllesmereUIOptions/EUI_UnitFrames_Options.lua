@@ -8017,6 +8017,31 @@ initFrame:SetScript("OnEvent", function(self)
             end
         end
 
+        -- Boss Health Marker (Player Frame only)
+        do
+            local bossMarkerRow
+            bossMarkerRow, h = W:DualRow(parent, y,
+                { type = "toggle", text = "Boss Health Marker",
+                  tooltip = "Shows a vertical marker on your power bar indicating the primary boss's health percentage.",
+                  getValue = function() return SVal("bossPacingEnabled", false) end,
+                  setValue = function(v)
+                      SSet("bossPacingEnabled", v)
+                      ReloadAndUpdate()
+                  end },
+                { type = "label", text = "" }
+            ); y = y - h
+
+            local function UpdateBossMarkerRow()
+                if selectedUnit == "player" then
+                    bossMarkerRow:Show()
+                else
+                    bossMarkerRow:Hide()
+                end
+            end
+            RegisterWidgetRefresh(UpdateBossMarkerRow)
+            UpdateBossMarkerRow()
+        end
+
         _, h = W:Spacer(parent, y, 20); y = y - h
 
         -------------------------------------------------------------------
