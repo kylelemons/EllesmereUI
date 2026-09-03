@@ -7981,6 +7981,17 @@ initFrame:SetScript("OnEvent", function(self)
                 },
             }
             local classAlts = SPEC_POWER_ALTS[playerClass]
+            local ptValues = {}
+            local ptOrder  = { "default", "alt" }
+            local spec = GetSpecialization and GetSpecialization()
+            local initData = classAlts and spec and classAlts[spec]
+            if initData then
+                ptValues["default"] = initData[1]
+                ptValues["alt"]     = initData[2]
+            else
+                ptValues["default"] = "Default"
+                ptValues["alt"]     = "Alternate"
+            end
 
             local sharedPowerRow5
             sharedPowerRow5, h = W:DualRow(parent, y,
@@ -7992,15 +8003,8 @@ initFrame:SetScript("OnEvent", function(self)
                       ReloadAndUpdate()
                   end },
                 { type = "dropdown", text = "Power Type",
-                  values = function()
-                      local s = GetSpecialization and GetSpecialization()
-                      local data = classAlts and s and classAlts[s]
-                      if data then
-                          return { default = data[1], alt = data[2] }
-                      end
-                      return { default = "Default" }
-                  end,
-                  order = { "default", "alt" },
+                  values = ptValues,
+                  order = ptOrder,
                   disabled = function()
                       local s = GetSpecialization and GetSpecialization()
                       return not (classAlts and s and classAlts[s])
@@ -8037,9 +8041,13 @@ initFrame:SetScript("OnEvent", function(self)
                 if selectedUnit == "player" then
                     sharedPowerRow5:Show()
                     local s = GetSpecialization and GetSpecialization()
-                    local hasAlt = classAlts and s and classAlts[s]
+                    local d = classAlts and s and classAlts[s]
+                    if d then
+                        ptValues["default"] = d[1]
+                        ptValues["alt"]     = d[2]
+                    end
                     if sharedPowerRow5._rightRegion then
-                        if hasAlt then
+                        if d then
                             sharedPowerRow5._rightRegion:Show()
                         else
                             sharedPowerRow5._rightRegion:Hide()
