@@ -7964,12 +7964,9 @@ initFrame:SetScript("OnEvent", function(self)
             EllesmereUI.RegisterWidgetRefresh(function() updatePBSwatch() end)
         end
 
-        -- Row 6: Power Type override (player-only, spec-dependent)
+        -- Row 6: Boss Health Marker (Left) + Power Type override (Right, player-only, spec-dependent)
         do
             local _, playerClass = UnitClass("player")
-            -- Specs that offer an alternative power type on the player power bar.
-            -- { defaultLabel, altLabel, altPowerType (Enum.PowerType value to force) }
-            -- For Shadow Priest the alt is "no override" (nil) so UnitPowerType returns Insanity.
             local SPEC_POWER_ALTS = {
                 DRUID  = {
                     [1] = { "Astral Power", "Mana",     0 },   -- Balance
@@ -7984,68 +7981,9 @@ initFrame:SetScript("OnEvent", function(self)
                 },
             }
             local classAlts = SPEC_POWER_ALTS[playerClass]
-            if classAlts then
-                local spec = GetSpecialization and GetSpecialization()
-                local data = spec and classAlts[spec]
-                local ptValues = {}
-                local ptOrder  = { "default", "alt" }
-                if data then
-                    ptValues["default"] = data[1]
-                    ptValues["alt"]     = data[2]
-                end
 
-                local sharedPowerRow5
-                sharedPowerRow5, h = W:DualRow(parent, y,
-                    { type="dropdown", text="Power Type",
-                      values = ptValues, order = ptOrder,
-                      -- Stored by SPEC ID, not the GetSpecialization() index: one
-                      -- profile holds one set, so an index key collides across
-                      -- classes (slot 3 is Guardian, Shadow AND Augmentation).
-                      -- classAlts stays index-keyed, it is already per class.
-                      getValue = function()
-                          local s = GetSpecialization and GetSpecialization()
-                          if not s or not classAlts[s] then return "default" end
-                          local sid = C_SpecializationInfo
-                              and C_SpecializationInfo.GetSpecializationInfo(s)
-                          if not sid then return "default" end
-                          local ov = UNIT_DB_MAP["player"]().powerTypeOverride
-                          if ov and ov[sid] then return "alt" end
-                          return "default"
-                      end,
-                      setValue = function(v)
-                          local s = GetSpecialization and GetSpecialization()
-                          if not s then return end
-                          local sid = C_SpecializationInfo
-                              and C_SpecializationInfo.GetSpecializationInfo(s)
-                          if not sid then return end
-                          local pdb = UNIT_DB_MAP["player"]()
-                          if v == "alt" then
-                              if not pdb.powerTypeOverride then pdb.powerTypeOverride = {} end
-                              pdb.powerTypeOverride[sid] = true
-                          else
-                              if pdb.powerTypeOverride then pdb.powerTypeOverride[sid] = nil end
-                          end
-                          ReloadAndUpdate()
-                      end },
-                    { type="label", text="" }); y = y - h
-
-                local function UpdatePowerTypeRow()
-                    local s = GetSpecialization and GetSpecialization()
-                    if selectedUnit == "player" and s and classAlts[s] then
-                        sharedPowerRow5:Show()
-                    else
-                        sharedPowerRow5:Hide()
-                    end
-                end
-                RegisterWidgetRefresh(UpdatePowerTypeRow)
-                UpdatePowerTypeRow()
-            end
-        end
-
-        -- Boss Health Marker (Player Frame only)
-        do
-            local bossMarkerRow
-            bossMarkerRow, h = W:DualRow(parent, y,
+            local sharedPowerRow5
+            sharedPowerRow5, h = W:DualRow(parent, y,
                 { type = "toggle", text = "Boss Health Marker",
                   tooltip = "Shows a vertical marker on your power bar indicating the primary boss's health percentage.",
                   getValue = function() return SVal("bossPacingEnabled", false) end,
@@ -8053,18 +7991,66 @@ initFrame:SetScript("OnEvent", function(self)
                       SSet("bossPacingEnabled", v)
                       ReloadAndUpdate()
                   end },
-                { type = "label", text = "" }
+                { type = "dropdown", text = "Power Type",
+                  values = function()
+                      local s = GetSpecialization and GetSpecialization()
+                      local data = classAlts and s and classAlts[s]
+                      if data then
+                          return { default = data[1], alt = data[2] }
+                      end
+                      return { default = "Default" }
+                  end,
+                  order = { "default", "alt" },
+                  disabled = function()
+                      local s = GetSpecialization and GetSpecialization()
+                      return not (classAlts and s and classAlts[s])
+                  end,
+                  disabledTooltip = function()
+                      return "No alternate power type for the current specialization."
+                  end,
+                  getValue = function()
+                      local s = GetSpecialization and GetSpecialization()
+                      if not s or not classAlts or not classAlts[s] then return "default" end
+                      local sid = C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo(s)
+                      if not sid then return "default" end
+                      local ov = UNIT_DB_MAP["player"]().powerTypeOverride
+                      if ov and ov[sid] then return "alt" end
+                      return "default"
+                  end,
+                  setValue = function(v)
+                      local s = GetSpecialization and GetSpecialization()
+                      if not s then return end
+                      local sid = C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo(s)
+                      if not sid then return end
+                      local pdb = UNIT_DB_MAP["player"]()
+                      if v == "alt" then
+                          if not pdb.powerTypeOverride then pdb.powerTypeOverride = {} end
+                          pdb.powerTypeOverride[sid] = true
+                      else
+                          if pdb.powerTypeOverride then pdb.powerTypeOverride[sid] = nil end
+                      end
+                      ReloadAndUpdate()
+                  end }
             ); y = y - h
 
-            local function UpdateBossMarkerRow()
+            local function UpdatePowerRow5()
                 if selectedUnit == "player" then
-                    bossMarkerRow:Show()
+                    sharedPowerRow5:Show()
+                    local s = GetSpecialization and GetSpecialization()
+                    local hasAlt = classAlts and s and classAlts[s]
+                    if sharedPowerRow5._rightRegion then
+                        if hasAlt then
+                            sharedPowerRow5._rightRegion:Show()
+                        else
+                            sharedPowerRow5._rightRegion:Hide()
+                        end
+                    end
                 else
-                    bossMarkerRow:Hide()
+                    sharedPowerRow5:Hide()
                 end
             end
-            RegisterWidgetRefresh(UpdateBossMarkerRow)
-            UpdateBossMarkerRow()
+            RegisterWidgetRefresh(UpdatePowerRow5)
+            UpdatePowerRow5()
         end
 
         _, h = W:Spacer(parent, y, 20); y = y - h
