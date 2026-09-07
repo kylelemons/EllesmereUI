@@ -8382,7 +8382,13 @@ local function CollectAndReanchor()
                         -- click-through set by SetFrameClickThrough.
                         local isCursorBar = container and container._mouseTrack
                         local bdHover = barDataByKey and barDataByKey[barKey]
-                        if bdHover and bdHover.showTooltip and not isCursorBar then
+                        local wantClicks = bdHover and bdHover.allowPing and not isCursorBar
+                        local wantHover = bdHover and (bdHover.showTooltip or wantClicks) and not isCursorBar
+                        if wantClicks then
+                            frame:EnableMouse(true)
+                            if frame.SetMouseClickEnabled then frame:SetMouseClickEnabled(true) end
+                            if frame.EnableMouseMotion then frame:EnableMouseMotion(true) end
+                        elseif wantHover then
                             frame:EnableMouse(true)
                             if frame.SetMouseClickEnabled then frame:SetMouseClickEnabled(false) end
                             if frame.EnableMouseMotion then frame:EnableMouseMotion(true) end

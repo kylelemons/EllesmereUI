@@ -18975,6 +18975,19 @@ initFrame:SetScript("OnEvent", function(self)
         end
         end -- if isAnyBuffBar (tooltip only) / else (tooltip + keybind)
 
+        -- Allow Ability Pinging
+        _, h = W:DualRow(parent, y,
+            { type = "toggle", text = "Allow Ability Pinging",
+              tooltip = "Enables pinging abilities and cooldowns on this bar using your ping key. When disabled, the bar is completely click-through to the game world.",
+              getValue = function() return BD().allowPing == true end,
+              setValue = function(v)
+                  BD().allowPing = v
+                  ns.ApplyCDMTooltipState(BD().key)
+                  Refresh()
+              end },
+            { type = "label", text = "" }
+        ); y = y - h
+
         -- Pandemic Glow
         do
             local function pandemicOff() return BD().pandemicGlow ~= true end
