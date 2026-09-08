@@ -18975,10 +18975,40 @@ initFrame:SetScript("OnEvent", function(self)
         end
         end -- if isAnyBuffBar (tooltip only) / else (tooltip + keybind)
 
+        -- Helper to check if a bar contains custom-injected frames (trinkets, racials, presets)
+        local function BarHasCustomFrames(bd)
+            if not bd then return false end
+            local key = bd.key
+            local icons = ns.cdmBarIcons and ns.cdmBarIcons[key]
+            if icons then
+                for _, ic in ipairs(icons) do
+                    if ic and (ic._isTrinketFrame or ic._isRacialFrame or ic._isPresetFrame
+                        or ic._isItemPresetFrame or ic._isCustomSpellFrame or ic._isCustomBuffFrame) then
+                        return true
+                    end
+                end
+            end
+            if bd.assignedSpells then
+                for _, sid in ipairs(bd.assignedSpells) do
+                    if type(sid) == "number" and sid < 0 then
+                        return true
+                    elseif type(sid) == "string" and (sid:find("^item:") or sid:find("^cs:") or sid:find("^preset:")) then
+                        return true
+                    end
+                end
+            end
+            if bd.customSpellIDs and next(bd.customSpellIDs) then
+                return true
+            end
+            return false
+        end
+
+        local UpdateWarnVisibility
+
         -- Allow Ability Pinging
-        _, h = W:DualRow(parent, y,
+        local pingRow, h = W:DualRow(parent, y,
             { type = "toggle", text = "Allow Ability Pinging",
-              tooltip = "Enables pinging abilities and cooldowns on this bar using your ping key. When disabled, the bar is completely click-through to the game world.\n\nNote: To ping trinkets or items, they must be added to Blizzard's native Cooldown Manager (custom Ellesmere trinket frames are not recognized by WoW's ping engine).",
+              tooltip = "Enables pinging abilities and cooldowns on this bar using your ping key. When disabled, the bar is completely click-through to the game world.",
               getValue = function() return BD().allowPing == true end,
               setValue = function(v)
                   BD().allowPing = v
@@ -18986,10 +19016,49 @@ initFrame:SetScript("OnEvent", function(self)
                   if ns.FullCDMRebuild then
                       ns.FullCDMRebuild("allow_ping_toggle")
                   end
+                  if UpdateWarnVisibility then UpdateWarnVisibility() end
                   Refresh()
               end },
             { type = "label", text = "" }
         ); y = y - h
+
+        if pingRow and pingRow._leftRegion and pingRow._leftRegion._label then
+            local warnBtn = CreateFrame("Button", nil, pingRow._leftRegion)
+            warnBtn:SetSize(16, 16)
+            warnBtn:SetPoint("LEFT", pingRow._leftRegion._label, "RIGHT", 6, 0)
+            warnBtn:SetFrameLevel(pingRow._leftRegion:GetFrameLevel() + 5)
+
+            local warnTex = warnBtn:CreateTexture(nil, "ARTWORK")
+            warnTex:SetAllPoints()
+            warnTex:SetTexture("Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew")
+
+            warnBtn:SetScript("OnEnter", function(self)
+                self:SetAlpha(1.0)
+                EllesmereUI.ShowWidgetTooltip(self,
+                    "|cffffcc00Custom Frames Notice|r\n\n" ..
+                    "Custom items or trinkets added through Ellesmere cannot be pinged because WoW's ping engine only recognizes native Blizzard Cooldown Manager entries.\n\n" ..
+                    "|cff00ff00Click to open Blizzard's Cooldown Manager settings|r, where you can add this trinket or item directly for full ping support.")
+            end)
+            warnBtn:SetScript("OnLeave", function(self)
+                self:SetAlpha(0.7)
+                EllesmereUI.HideWidgetTooltip()
+            end)
+            warnBtn:SetScript("OnClick", function()
+                if CooldownViewerSettings and CooldownViewerSettings.Show then
+                    CooldownViewerSettings:Show()
+                    if EllesmereUI._mainFrame then EllesmereUI._mainFrame:Hide() end
+                end
+            end)
+
+            UpdateWarnVisibility = function()
+                local bd = BD()
+                local show = bd and bd.allowPing and BarHasCustomFrames(bd)
+                warnBtn:SetShown(show and true or false)
+                warnBtn:SetAlpha(0.7)
+            end
+            EllesmereUI.RegisterWidgetRefresh(UpdateWarnVisibility)
+            UpdateWarnVisibility()
+        end
 
         -- Pandemic Glow
         do
