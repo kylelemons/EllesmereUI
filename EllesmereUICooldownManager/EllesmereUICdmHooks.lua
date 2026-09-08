@@ -8385,8 +8385,11 @@ local function CollectAndReanchor()
                     if not InCombatLockdown() then
                         if wantClicks then
                             frame:EnableMouse(true)
-                            if frame.SetMouseClickEnabled then frame:SetMouseClickEnabled(true) end
+                            if frame.SetMouseClickEnabled then frame:SetMouseClickEnabled(false) end
                             if frame.EnableMouseMotion then frame:EnableMouseMotion(true) end
+                            if frame.SetPassThroughButtons then
+                                pcall(frame.SetPassThroughButtons, frame, "LeftButton", "RightButton", "MiddleButton", "Button4", "Button5")
+                            end
                         elseif wantHover then
                             frame:EnableMouse(true)
                             if frame.SetMouseClickEnabled then frame:SetMouseClickEnabled(false) end
