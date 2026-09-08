@@ -5074,8 +5074,11 @@ local function ApplyCDMTooltipState(barKey)
                     local phHidden = IsPlaceholderRenderHidden(ic, bd)
                     if wantClicks and not phHidden then
                         ic:EnableMouse(true)
-                        if ic.SetMouseClickEnabled then ic:SetMouseClickEnabled(true) end
+                        if ic.SetMouseClickEnabled then ic:SetMouseClickEnabled(false) end
                         if ic.EnableMouseMotion then ic:EnableMouseMotion(true) end
+                        if ic.SetPassThroughButtons then
+                            pcall(ic.SetPassThroughButtons, ic, "LeftButton", "RightButton", "MiddleButton", "Button4", "Button5")
+                        end
                         if ic.Cooldown then
                             ic.Cooldown:EnableMouse(false)
                             if ic.Cooldown.SetMouseClickEnabled then ic.Cooldown:SetMouseClickEnabled(false) end
@@ -7251,8 +7254,11 @@ _CDMApplyVisibility = function()
                                 local wantHover = (barData.showTooltip or wantClicks) and not isCursorBar and not phHidden
                                 if wantClicks then
                                     ic:EnableMouse(true)
-                                    if ic.SetMouseClickEnabled then ic:SetMouseClickEnabled(true) end
+                                    if ic.SetMouseClickEnabled then ic:SetMouseClickEnabled(false) end
                                     if ic.EnableMouseMotion then ic:EnableMouseMotion(true) end
+                                    if ic.SetPassThroughButtons then
+                                        pcall(ic.SetPassThroughButtons, ic, "LeftButton", "RightButton", "MiddleButton", "Button4", "Button5")
+                                    end
                                     if ic.Cooldown then
                                         ic.Cooldown:EnableMouse(false)
                                         if ic.Cooldown.SetMouseClickEnabled then ic.Cooldown:SetMouseClickEnabled(false) end
