@@ -18976,31 +18976,88 @@ initFrame:SetScript("OnEvent", function(self)
         end -- if isAnyBuffBar (tooltip only) / else (tooltip + keybind)
 
         -- Helper to check if a bar contains custom-injected frames (trinkets, racials, presets)
-        local function BarHasCustomFrames(bd)
-            if not bd then return false end
+        -- and return their display names for the warning tooltip.
+        local function GetBarCustomFrames(bd)
+            if not bd then return {} end
             local key = bd.key
+            local list = {}
+            local seen = {}
+
+            local function add(name)
+                if name and not seen[name] then
+                    seen[name] = true
+                    list[#list + 1] = name
+                end
+            end
+
             local icons = ns.cdmBarIcons and ns.cdmBarIcons[key]
             if icons then
                 for _, ic in ipairs(icons) do
-                    if ic and (ic._isTrinketFrame or ic._isRacialFrame or ic._isPresetFrame
-                        or ic._isItemPresetFrame or ic._isCustomSpellFrame or ic._isCustomBuffFrame) then
-                        return true
+                    if ic then
+                        if ic._isTrinketFrame then
+                            local slot = ic._trinketSlot
+                            local slotName = (slot == 13 and "Trinket 1") or (slot == 14 and "Trinket 2") or ("Slot " .. tostring(slot or "?"))
+                            local link = slot and GetInventoryItemLink("player", slot)
+                            local itemID = slot and GetInventoryItemID("player", slot)
+                            local itemName = itemID and C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID)
+                            local disp = link or itemName
+                            if disp and disp ~= "" then
+                                add(disp .. " (" .. slotName .. ")")
+                            else
+                                add(slotName)
+                            end
+                        elseif ic._isRacialFrame or ic._isCustomSpellFrame or ic._isCustomBuffFrame or ic._isPresetFrame or ic._isItemPresetFrame then
+                            local ffc = ns._ecmeFC and ns._ecmeFC[ic]
+                            local spid = ffc and (ffc.spellID or ffc.baseSpellID or ffc.resolvedSid)
+                            local link = spid and C_Spell and C_Spell.GetSpellLink and C_Spell.GetSpellLink(spid)
+                            local sInfo = spid and C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spid)
+                            local sName = link or (sInfo and sInfo.name)
+                            if ic._isRacialFrame then
+                                add((sName or "Racial Ability") .. " (Racial)")
+                            elseif sName then
+                                add(sName)
+                            elseif ic._isItemPresetFrame or ic._isPresetFrame then
+                                add(ic._presetKey or "Preset Item")
+                            else
+                                add("Custom Ability")
+                            end
+                        end
                     end
                 end
             end
+
             if bd.assignedSpells then
                 for _, sid in ipairs(bd.assignedSpells) do
                     if type(sid) == "number" and sid < 0 then
-                        return true
-                    elseif type(sid) == "string" and (sid:find("^item:") or sid:find("^cs:") or sid:find("^preset:")) then
-                        return true
+                        local slot = -sid
+                        local slotName = (slot == 13 and "Trinket 1") or (slot == 14 and "Trinket 2") or ("Slot " .. slot)
+                        local link = GetInventoryItemLink("player", slot)
+                        local itemID = GetInventoryItemID("player", slot)
+                        local itemName = itemID and C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID)
+                        local disp = link or itemName
+                        if disp and disp ~= "" then
+                            add(disp .. " (" .. slotName .. ")")
+                        else
+                            add(slotName)
+                        end
+                    elseif type(sid) == "string" and sid:find("^item:") then
+                        local iid = tonumber(sid:match("^item:(%d+)"))
+                        local link = iid and select(2, C_Item.GetItemInfo(iid))
+                        local iName = iid and C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(iid)
+                        add(link or iName or sid)
                     end
                 end
             end
-            if bd.customSpellIDs and next(bd.customSpellIDs) then
-                return true
+
+            if bd.customSpellIDs then
+                for sid in pairs(bd.customSpellIDs) do
+                    local link = C_Spell and C_Spell.GetSpellLink and C_Spell.GetSpellLink(sid)
+                    local sInfo = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(sid)
+                    add(link or (sInfo and sInfo.name) or ("Spell " .. sid))
+                end
             end
-            return false
+
+            return list
         end
 
         local UpdateWarnVisibility
@@ -19034,10 +19091,21 @@ initFrame:SetScript("OnEvent", function(self)
 
             warnBtn:SetScript("OnEnter", function(self)
                 self:SetAlpha(1.0)
+                local bd = BD()
+                local customList = GetBarCustomFrames(bd)
+                local listText = ""
+                if #customList > 0 then
+                    listText = "\n\n|cffffd100Unrecognized on this bar:|r\n"
+                    for _, name in ipairs(customList) do
+                        listText = listText .. "  • " .. name .. "\n"
+                    end
+                end
+
                 EllesmereUI.ShowWidgetTooltip(self,
                     "|cffffcc00Custom Frames Notice|r\n\n" ..
-                    "Custom items or trinkets added through Ellesmere cannot be pinged because WoW's ping engine only recognizes native Blizzard Cooldown Manager entries.\n\n" ..
-                    "|cff00ff00Click to open Blizzard's Cooldown Manager settings|r, where you can add this trinket or item directly for full ping support.")
+                    "Custom items, racials, or trinkets added through Ellesmere cannot be pinged because WoW's ping engine only recognizes native Blizzard Cooldown Manager entries." ..
+                    listText .. "\n" ..
+                    "|cff00ff00Click to open Blizzard's Cooldown Manager settings|r, where you can add them directly for full ping support.")
             end)
             warnBtn:SetScript("OnLeave", function(self)
                 self:SetAlpha(0.7)
@@ -19052,7 +19120,8 @@ initFrame:SetScript("OnEvent", function(self)
 
             UpdateWarnVisibility = function()
                 local bd = BD()
-                local show = bd and bd.allowPing and BarHasCustomFrames(bd)
+                local customList = GetBarCustomFrames(bd)
+                local show = bd and bd.allowPing and #customList > 0
                 warnBtn:SetShown(show and true or false)
                 warnBtn:SetAlpha(0.7)
             end
