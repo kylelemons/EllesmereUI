@@ -18983,6 +18983,9 @@ initFrame:SetScript("OnEvent", function(self)
               setValue = function(v)
                   BD().allowPing = v
                   ns.ApplyCDMTooltipState(BD().key)
+                  if ns.FullCDMRebuild then
+                      ns.FullCDMRebuild("allow_ping_toggle")
+                  end
                   Refresh()
               end },
             { type = "label", text = "" }

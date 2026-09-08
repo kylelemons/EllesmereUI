@@ -5076,6 +5076,11 @@ local function ApplyCDMTooltipState(barKey)
                         ic:EnableMouse(true)
                         if ic.SetMouseClickEnabled then ic:SetMouseClickEnabled(true) end
                         if ic.EnableMouseMotion then ic:EnableMouseMotion(true) end
+                        if ic.Cooldown then
+                            ic.Cooldown:EnableMouse(false)
+                            if ic.Cooldown.SetMouseClickEnabled then ic.Cooldown:SetMouseClickEnabled(false) end
+                            if ic.Cooldown.SetMouseMotionEnabled then ic.Cooldown:SetMouseMotionEnabled(false) end
+                        end
                     else
                         ic:EnableMouse(false)
                         -- Invisible placeholders are excluded even with tooltips on: an
@@ -5259,6 +5264,9 @@ ApplyShapeToCDMIcon = function(icon, shape, barData, ssb)
     if not ifc.shapeBorderFrame then
         local sbf = CreateFrame("Frame", nil, icon)
         sbf:SetAllPoints(icon)
+        sbf:EnableMouse(false)
+        if sbf.SetMouseClickEnabled then sbf:SetMouseClickEnabled(false) end
+        if sbf.SetMouseMotionEnabled then sbf:SetMouseMotionEnabled(false) end
         sbf:SetFrameLevel(icon:GetFrameLevel() + 2)
         ifc.shapeBorderFrame = sbf
     end
@@ -7245,6 +7253,11 @@ _CDMApplyVisibility = function()
                                     ic:EnableMouse(true)
                                     if ic.SetMouseClickEnabled then ic:SetMouseClickEnabled(true) end
                                     if ic.EnableMouseMotion then ic:EnableMouseMotion(true) end
+                                    if ic.Cooldown then
+                                        ic.Cooldown:EnableMouse(false)
+                                        if ic.Cooldown.SetMouseClickEnabled then ic.Cooldown:SetMouseClickEnabled(false) end
+                                        if ic.Cooldown.SetMouseMotionEnabled then ic.Cooldown:SetMouseMotionEnabled(false) end
+                                    end
                                 else
                                     ic:EnableMouse(false)
                                     -- Same mouseover-stealing rule as the container above: icons may only

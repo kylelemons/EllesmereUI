@@ -2959,6 +2959,9 @@ local function DecorateFrame(frame, barData)
         if not fd.borderFrame then
             local bf = CreateFrame("Frame", nil, frame)
             bf:SetAllPoints(frame)
+            bf:EnableMouse(false)
+            if bf.SetMouseClickEnabled then bf:SetMouseClickEnabled(false) end
+            if bf.SetMouseMotionEnabled then bf:SetMouseMotionEnabled(false) end
             fd.borderFrame = bf
         end
         local brdR, brdG, brdB = barData.borderR or 0, barData.borderG or 0, barData.borderB or 0
@@ -8362,28 +8365,24 @@ local function CollectAndReanchor()
                         frame.Cooldown:SetHideCountdownNumbers(hcd)
                     end
                     -- Reparent custom frames to our container (never to Blizzard viewers)
-                    -- and force click-through. Something in the Decorate /
-                    -- Show / SetParent / Cooldown path re-enables mouse on
-                    -- these frames despite our creation-time EnableMouse(false),
-                    -- so we re-disable them defensively here (mirroring the
-                    -- custom aura bar pattern at ~L1792).
-                    if frame._isRacialFrame or frame._isTrinketFrame
+                    local isCustom = frame._isRacialFrame or frame._isTrinketFrame
                        or frame._isPresetFrame or frame._isItemPresetFrame
-                       or frame._isCustomSpellFrame then
+                       or frame._isCustomSpellFrame
+                    if isCustom then
                         if frame:GetParent() ~= container then
                             frame:SetParent(container)
                         end
-                        -- Mouse motion (OnEnter/OnLeave) only while this bar's
-                        -- tooltips are on -- a motion-enabled icon steals
-                        -- mouseover focus from unit frames underneath (raid
-                        -- frame hover highlight, [@mouseover] casts). Clicks
-                        -- always pass through. Cursor-anchored bars stay fully
-                        -- mouse-through: re-enabling mouse here would undo the
-                        -- click-through set by SetFrameClickThrough.
-                        local isCursorBar = container and container._mouseTrack
-                        local bdHover = barDataByKey and barDataByKey[barKey]
-                        local wantClicks = bdHover and bdHover.allowPing and not isCursorBar
-                        local wantHover = bdHover and (bdHover.showTooltip or wantClicks) and not isCursorBar
+                    end
+
+                    -- Mouse motion and click handling for ALL active icons (native + custom).
+                    -- When allowPing is enabled, clicks must be enabled so WoW 12.1's native
+                    -- ping engine can target the cooldown. When disabled, clicks pass through.
+                    -- Cursor-anchored bars stay fully mouse-through to protect [@mouseover] macros.
+                    local isCursorBar = container and container._mouseTrack
+                    local bdHover = barDataByKey and barDataByKey[barKey]
+                    local wantClicks = bdHover and bdHover.allowPing and not isCursorBar
+                    local wantHover = bdHover and (bdHover.showTooltip or wantClicks) and not isCursorBar
+                    if not InCombatLockdown() then
                         if wantClicks then
                             frame:EnableMouse(true)
                             if frame.SetMouseClickEnabled then frame:SetMouseClickEnabled(true) end
@@ -8406,14 +8405,7 @@ local function CollectAndReanchor()
                             end
                         end
                     end
-                    -- Cursor-anchored bars must stay fully mouse-through on
-                    -- EVERY icon, native viewer icons included -- the branch
-                    -- above only re-asserts our own custom frames, but the
-                    -- same Decorate/Show/SetParent/Cooldown path can re-enable
-                    -- mouse on native icons. A mouse-enabled icon riding the
-                    -- cursor intermittently kills [@mouseover] hovercast keys
-                    -- while frame focus still looks correct.
-                    if container and container._mouseTrack then
+                    if isCursorBar then
                         frame:EnableMouse(false)
                         if frame.EnableMouseMotion then frame:EnableMouseMotion(false) end
                         if frame.Cooldown then frame.Cooldown:EnableMouse(false) end
