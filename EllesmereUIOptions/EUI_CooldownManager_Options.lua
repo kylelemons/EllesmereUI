@@ -18978,7 +18978,7 @@ initFrame:SetScript("OnEvent", function(self)
         -- Allow Ability Pinging
         _, h = W:DualRow(parent, y,
             { type = "toggle", text = "Allow Ability Pinging",
-              tooltip = "Enables pinging abilities and cooldowns on this bar using your ping key. When disabled, the bar is completely click-through to the game world.",
+              tooltip = "Enables pinging abilities and cooldowns on this bar using your ping key. When disabled, the bar is completely click-through to the game world.\n\nNote: To ping trinkets or items, they must be added to Blizzard's native Cooldown Manager (custom Ellesmere trinket frames are not recognized by WoW's ping engine).",
               getValue = function() return BD().allowPing == true end,
               setValue = function(v)
                   BD().allowPing = v
