@@ -6644,8 +6644,14 @@ initFrame:SetScript("OnEvent", function(self)
                 -- cooldownInfo base differs from its live talent form (e.g. 137029 Holy
                 -- Paladin vs 432496 Holy Bulwark) dedups against the stored canonical ID
                 -- instead of appending a duplicate. Falls back to raw FC spellID for our own custom frames.
-                local _sid = (ns.GetCanonicalSpellIDForFrame and ns.GetCanonicalSpellIDForFrame(icon))
-                             or (ns._ecmeFC[icon] and ns._ecmeFC[icon].spellID)
+                local fcLI = ns._ecmeFC and ns._ecmeFC[icon]
+                local _sid
+                if fcLI and fcLI.itemSpellID then
+                    _sid = fcLI.itemSpellID
+                else
+                    _sid = (ns.GetCanonicalSpellIDForFrame and ns.GetCanonicalSpellIDForFrame(icon))
+                           or (fcLI and fcLI.spellID)
+                end
                 -- Skip hosted-buff frames and their placeholders: their bar membership is
                 -- the hosted MARKER entry; materializing their canonical spellID here would fabricate a plain COOLDOWN entry for the same spell (the buff frame's id resolves positive).
                 local _fdLI = ns._hookFrameData and ns._hookFrameData[icon]
@@ -15167,6 +15173,22 @@ initFrame:SetScript("OnEvent", function(self)
                 local sdursUn   = sdUn and sdUn.spellDurations
                 local groupsUn  = sdUn and sdUn.customSpellGroups
                 local racialsUn = ns._myRacialsSet
+                -- Equipped item on-use spells are not class spellbook spells, so IsPlayerSpell
+                -- returns false. Collect equipped item spells so they are never flagged as unlearned.
+                local itemSpellsUn
+                local gis = (C_Item and C_Item.GetItemSpell) or GetItemSpell
+                if gis and GetInventoryItemID then
+                    for slot = 1, 19 do
+                        local iid = GetInventoryItemID("player", slot)
+                        if iid then
+                            local _, sp = gis(iid)
+                            if type(sp) == "number" and sp > 0 then
+                                itemSpellsUn = itemSpellsUn or {}
+                                itemSpellsUn[sp] = true
+                            end
+                        end
+                    end
+                end
                 for _, id in ipairs(tracked) do
                     if type(id) == "number" and id > 0
                        and not (customUn and customUn[id])
@@ -15174,6 +15196,7 @@ initFrame:SetScript("OnEvent", function(self)
                        and not (cdursUn and cdursUn[id])
                        and not (sdursUn and sdursUn[id])
                        and not (groupsUn and groupsUn[id])
+                       and not (itemSpellsUn and itemSpellsUn[id])
                        and not (IsPlayerSpell(id)
                             or IsPlayerSpell(NormalizeToBase(id))
                             or IsPlayerSpell(ResolveToLive(id))) then
