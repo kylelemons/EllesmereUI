@@ -18945,6 +18945,160 @@ initFrame:SetScript("OnEvent", function(self)
         end)
         end -- if isAnyBuffBar (tooltip only) / else (tooltip + keybind)
 
+        -- Helper to check if a bar contains custom-injected frames (trinkets, racials, presets)
+        -- and return their display names for the warning tooltip.
+        local function GetBarCustomFrames(bd)
+            if not bd then return {} end
+            local key = bd.key
+            local list = {}
+            local seen = {}
+
+            local function add(name)
+                if name and not seen[name] then
+                    seen[name] = true
+                    list[#list + 1] = name
+                end
+            end
+
+            local icons = ns.cdmBarIcons and ns.cdmBarIcons[key]
+            if icons then
+                for _, ic in ipairs(icons) do
+                    if ic then
+                        if ic._isTrinketFrame then
+                            local slot = ic._trinketSlot
+                            local slotName = (slot == 13 and "Trinket 1") or (slot == 14 and "Trinket 2") or ("Slot " .. tostring(slot or "?"))
+                            local link = slot and GetInventoryItemLink("player", slot)
+                            local itemID = slot and GetInventoryItemID("player", slot)
+                            local itemName = itemID and C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID)
+                            local disp = link or itemName
+                            if disp and disp ~= "" then
+                                add(disp .. " (" .. slotName .. ")")
+                            else
+                                add(slotName)
+                            end
+                        elseif ic._isRacialFrame or ic._isCustomSpellFrame or ic._isCustomBuffFrame or ic._isPresetFrame or ic._isItemPresetFrame then
+                            local ffc = ns._ecmeFC and ns._ecmeFC[ic]
+                            local spid = ffc and (ffc.spellID or ffc.baseSpellID or ffc.resolvedSid)
+                            local link = spid and C_Spell and C_Spell.GetSpellLink and C_Spell.GetSpellLink(spid)
+                            local sInfo = spid and C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spid)
+                            local sName = link or (sInfo and sInfo.name)
+                            if ic._isRacialFrame then
+                                add((sName or "Racial Ability") .. " (Racial)")
+                            elseif sName then
+                                add(sName)
+                            elseif ic._isItemPresetFrame or ic._isPresetFrame then
+                                add(ic._presetKey or "Preset Item")
+                            else
+                                add("Custom Ability")
+                            end
+                        end
+                    end
+                end
+            end
+
+            if bd.assignedSpells then
+                for _, sid in ipairs(bd.assignedSpells) do
+                    if type(sid) == "number" and sid < 0 then
+                        local slot = -sid
+                        local slotName = (slot == 13 and "Trinket 1") or (slot == 14 and "Trinket 2") or ("Slot " .. slot)
+                        local link = GetInventoryItemLink("player", slot)
+                        local itemID = GetInventoryItemID("player", slot)
+                        local itemName = itemID and C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(itemID)
+                        local disp = link or itemName
+                        if disp and disp ~= "" then
+                            add(disp .. " (" .. slotName .. ")")
+                        else
+                            add(slotName)
+                        end
+                    elseif type(sid) == "string" and sid:find("^item:") then
+                        local iid = tonumber(sid:match("^item:(%d+)"))
+                        local link = iid and select(2, C_Item.GetItemInfo(iid))
+                        local iName = iid and C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(iid)
+                        add(link or iName or sid)
+                    end
+                end
+            end
+
+            if bd.customSpellIDs then
+                for sid in pairs(bd.customSpellIDs) do
+                    local link = C_Spell and C_Spell.GetSpellLink and C_Spell.GetSpellLink(sid)
+                    local sInfo = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(sid)
+                    add(link or (sInfo and sInfo.name) or ("Spell " .. sid))
+                end
+            end
+
+            return list
+        end
+
+        local UpdateWarnVisibility
+
+        -- Allow Ability Pinging
+        local pingRow, h = W:DualRow(parent, y,
+            { type = "toggle", text = "Allow Ability Pinging",
+              tooltip = "Enables pinging abilities and cooldowns on this bar using your ping key. When disabled, the bar is completely click-through to the game world.",
+              getValue = function() return BD().allowPing == true end,
+              setValue = function(v)
+                  BD().allowPing = v
+                  ns.ApplyCDMTooltipState(BD().key)
+                  if ns.FullCDMRebuild then
+                      ns.FullCDMRebuild("allow_ping_toggle")
+                  end
+                  if UpdateWarnVisibility then UpdateWarnVisibility() end
+                  Refresh()
+              end },
+            { type = "label", text = "" }
+        ); y = y - h
+
+        if pingRow and pingRow._leftRegion and pingRow._leftRegion._label then
+            local warnBtn = CreateFrame("Button", nil, pingRow._leftRegion)
+            warnBtn:SetSize(16, 16)
+            warnBtn:SetPoint("LEFT", pingRow._leftRegion._label, "RIGHT", 6, 0)
+            warnBtn:SetFrameLevel(pingRow._leftRegion:GetFrameLevel() + 5)
+
+            local warnTex = warnBtn:CreateTexture(nil, "ARTWORK")
+            warnTex:SetAllPoints()
+            warnTex:SetTexture("Interface\\DialogFrame\\UI-Dialog-Icon-AlertNew")
+
+            warnBtn:SetScript("OnEnter", function(self)
+                self:SetAlpha(1.0)
+                local bd = BD()
+                local customList = GetBarCustomFrames(bd)
+                local listText = ""
+                if #customList > 0 then
+                    listText = "\n\n|cffffd100Unrecognized on this bar:|r\n"
+                    for _, name in ipairs(customList) do
+                        listText = listText .. "  • " .. name .. "\n"
+                    end
+                end
+
+                EllesmereUI.ShowWidgetTooltip(self,
+                    "|cffffcc00Custom Frames Notice|r\n\n" ..
+                    "Custom items, racials, or trinkets added through Ellesmere cannot be pinged because WoW's ping engine only recognizes native Blizzard Cooldown Manager entries." ..
+                    listText .. "\n" ..
+                    "|cff00ff00Click to open Blizzard's Cooldown Manager settings|r, where you can add them directly for full ping support.")
+            end)
+            warnBtn:SetScript("OnLeave", function(self)
+                self:SetAlpha(0.7)
+                EllesmereUI.HideWidgetTooltip()
+            end)
+            warnBtn:SetScript("OnClick", function()
+                if CooldownViewerSettings and CooldownViewerSettings.Show then
+                    CooldownViewerSettings:Show()
+                    if EllesmereUI._mainFrame then EllesmereUI._mainFrame:Hide() end
+                end
+            end)
+
+            UpdateWarnVisibility = function()
+                local bd = BD()
+                local customList = GetBarCustomFrames(bd)
+                local show = bd and bd.allowPing and #customList > 0
+                warnBtn:SetShown(show and true or false)
+                warnBtn:SetAlpha(0.7)
+            end
+            EllesmereUI.RegisterWidgetRefresh(UpdateWarnVisibility)
+            UpdateWarnVisibility()
+        end
+
         -- Pandemic Glow: the Glows page's descriptor over this bar, with the
         -- preview and the Pixel Glow cog inline and the swatches in the right half.
         do
