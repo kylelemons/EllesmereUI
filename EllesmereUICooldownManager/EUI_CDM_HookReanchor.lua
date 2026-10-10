@@ -498,6 +498,20 @@ local function CollectAndReanchor()
                                     fc.barKey = barKey
                                     fc.spellID = -(1000000000 + cdID)
                                     fc.isHostedBuff = nil
+                                    if eqInfo.equipSlot then
+                                        fc.equipSlot = eqInfo.equipSlot
+                                        if GetInventoryItemID and C_Item and C_Item.GetItemSpell then
+                                            local iid = GetInventoryItemID("player", eqInfo.equipSlot)
+                                            if iid then
+                                                local _, sp = C_Item.GetItemSpell(iid)
+                                                if sp and sp > 0 then fc.itemSpellID = sp end
+                                            end
+                                        end
+                                        if not fc.itemSpellID then
+                                            local displaySID, baseSID = ResolveFrameSpellID(frame)
+                                            fc.itemSpellID = displaySID or baseSID
+                                        end
+                                    end
                                 else
                                 local displaySID, baseSID = ResolveFrameSpellID(frame)
                                 if displaySID and displaySID > 0 then

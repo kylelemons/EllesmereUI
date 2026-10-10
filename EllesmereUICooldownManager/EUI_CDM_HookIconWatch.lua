@@ -94,7 +94,42 @@ local CD_READY_SOUND_GAP = 0.5
 -- strict, because a CAST-TIME spell raises its cooldown only on cast SUCCESS and
 -- until then GetSpellCooldown reports the GCD alone (isActive + isOnGCD) --
 -- "ready" under the loose test, firing the armed sound at the moment of cast.
-local function CdReadyIsReady(liveSid, strict)
+local function CdReadyIsReady(liveSid, strict, frame)
+    local fc = frame and _ecmeFC[frame]
+    if fc and fc.equipSlot and GetInventoryItemCooldown then
+        local start, duration, enable = GetInventoryItemCooldown("player", fc.equipSlot)
+        if not start or start == 0 or not duration or duration <= 0 or enable == 0 then
+            return true
+        end
+        if duration > 1.5 then
+            local now = GetTime()
+            if now < (start + duration) then
+                return false
+            end
+        end
+        return true
+    end
+    if not (fc and fc.equipSlot) and GetInventoryItemID and C_Item and C_Item.GetItemSpell and GetInventoryItemCooldown then
+        for slot = 13, 14 do
+            local iid = GetInventoryItemID("player", slot)
+            if iid then
+                local _, sp = C_Item.GetItemSpell(iid)
+                if sp == liveSid then
+                    local start, duration, enable = GetInventoryItemCooldown("player", slot)
+                    if not start or start == 0 or not duration or duration <= 0 or enable == 0 then
+                        return true
+                    end
+                    if duration > 1.5 then
+                        local now = GetTime()
+                        if now < (start + duration) then
+                            return false
+                        end
+                    end
+                    return true
+                end
+            end
+        end
+    end
     local ci = C_Spell.GetSpellCharges and C_Spell.GetSpellCharges(liveSid)
     if ci ~= nil and (ci.maxCharges or 0) > 1 then
         return not ci.isActive
@@ -174,15 +209,17 @@ local function EvalCdReadySound(frame, fd, primeOnly)
         return
     end
     local liveSid = sid2
-    if C_SpellBook and C_SpellBook.FindSpellOverrideByID then
+    if fc2 and fc2.itemSpellID then
+        liveSid = fc2.itemSpellID
+    elseif C_SpellBook and C_SpellBook.FindSpellOverrideByID then
         liveSid = C_SpellBook.FindSpellOverrideByID(sid2) or sid2
     end
-    if not CdReadyIsReady(liveSid) then
+    if not CdReadyIsReady(liveSid, false, frame) then
         -- On cooldown (or a charge spell below max): arm.
         if not fd._cdReadyArmed then fd._cdReadyArmedAt = GetTime() end
         fd._cdReadyArmed = true
         fd._cdReadyArmedSid = sid2
-    elseif fd._cdReadyArmed and not primeOnly and CdReadyIsReady(liveSid, true) then
+    elseif fd._cdReadyArmed and not primeOnly and CdReadyIsReady(liveSid, true, frame) then
         if fd._cdReadyArmedSid ~= sid2 then
             -- Spell on this frame changed since arming (spec/talent swap); stale arm.
             fd._cdReadyArmed = false
@@ -204,10 +241,12 @@ local function EvalCdReadySound(frame, fd, primeOnly)
                 local kp = ssp and ssp.cdReadySoundKey
                 if not kp or kp == "none" then fd._cdReadyArmed = false; return end
                 local livep = sidp
-                if C_SpellBook and C_SpellBook.FindSpellOverrideByID then
+                if fcp and fcp.itemSpellID then
+                    livep = fcp.itemSpellID
+                elseif C_SpellBook and C_SpellBook.FindSpellOverrideByID then
                     livep = C_SpellBook.FindSpellOverrideByID(sidp) or sidp
                 end
-                if not CdReadyIsReady(livep, true) then return end  -- not ready (race/GCD) -> stay armed
+                if not CdReadyIsReady(livep, true, frame) then return end  -- not ready (race/GCD) -> stay armed
                 if ns._cdmSoundSuppressed() then fd._cdReadyArmed = false; return end  -- a load began mid-defer
                 -- Sub-GCD arm span = transient misread, not a real cooldown ending.
                 local armedAt = fd._cdReadyArmedAt
@@ -255,10 +294,13 @@ local function HookCdReadyAvailableAlert(frame, fd)
         if not keya or keya == "none" then return end
         if ns._cdmSoundSuppressed() then fd._cdReadyArmed = false; return end
         local livea = sida
-        if C_SpellBook and C_SpellBook.FindSpellOverrideByID then
+        if fca and fca.itemSpellID then
+            livea = fca.itemSpellID
+        elseif C_SpellBook and C_SpellBook.FindSpellOverrideByID then
             livea = C_SpellBook.FindSpellOverrideByID(sida) or sida
         end
         if CdReadyIsChargeSpell(livea) then return end
+        if not CdReadyIsReady(livea, true, f) then return end
         PlayCdReadySound(fd, keya, livea, sida, bka, "alert")
     end)
 end
@@ -292,12 +334,15 @@ function ns.WatchCdReadySoundIfEnabled(frame)
             local ef = ns.TakeShell()
             ef:RegisterEvent("SPELL_UPDATE_COOLDOWN")
             ef:RegisterEvent("SPELL_UPDATE_CHARGES")
+            ef:RegisterEvent("BAG_UPDATE_COOLDOWN")
             ef:SetScript("OnEvent", function()
                 for f, d in pairs(ns._cdReadySoundWatch) do
                     EvalCdReadySound(f, d)
                 end
             end)
             ns._cdReadySoundEventFrame = ef
+        else
+            pcall(ns._cdReadySoundEventFrame.RegisterEvent, ns._cdReadySoundEventFrame, "BAG_UPDATE_COOLDOWN")
         end
         HookCdReadyAvailableAlert(frame, fd)
         EvalCdReadySound(frame, fd, true)  -- prime the arm state only; never plays here
