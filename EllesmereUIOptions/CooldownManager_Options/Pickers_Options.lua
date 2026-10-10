@@ -134,8 +134,14 @@ local function EnsureAssignedSpells(barKeyE)
             -- cooldownInfo base differs from its live talent form (e.g. 137029 Holy
             -- Paladin vs 432496 Holy Bulwark) dedups against the stored canonical ID
             -- instead of appending a duplicate. Falls back to raw FC spellID for our own custom frames.
-            local _sid = (ns.GetCanonicalSpellIDForFrame and ns.GetCanonicalSpellIDForFrame(icon))
-                         or (ns._ecmeFC[icon] and ns._ecmeFC[icon].spellID)
+            local fcLI = ns._ecmeFC and ns._ecmeFC[icon]
+            local _sid
+            if fcLI and fcLI.itemSpellID then
+                _sid = fcLI.itemSpellID
+            else
+                _sid = (ns.GetCanonicalSpellIDForFrame and ns.GetCanonicalSpellIDForFrame(icon))
+                       or (fcLI and fcLI.spellID)
+            end
             -- Skip hosted-buff frames and their placeholders: their bar membership is
             -- the hosted MARKER entry; materializing their canonical spellID here would fabricate a plain COOLDOWN entry for the same spell (the buff frame's id resolves positive).
             local _fdLI = ns._hookFrameData and ns._hookFrameData[icon]
