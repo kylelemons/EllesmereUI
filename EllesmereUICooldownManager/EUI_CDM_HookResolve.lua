@@ -197,7 +197,8 @@ local function ResolveSpellSettingsUncached(frame, sid2, sd2, barKey)
     -- overrides flip mid-combat with no content change, which only that step catches.
     local ids
     if fc2 and fc2.ssIds and fc2.ssIdsFor == sid2
-       and fc2.ssIdsRS == fc2.resolvedSid and fc2.ssIdsBS == fc2.baseSpellID then
+       and fc2.ssIdsRS == fc2.resolvedSid and fc2.ssIdsBS == fc2.baseSpellID
+       and fc2.ssIdsItem == fc2.itemSpellID then
         ids = fc2.ssIds
     else
         ids = { sid2 }
@@ -211,6 +212,8 @@ local function ResolveSpellSettingsUncached(frame, sid2, sd2, barKey)
         if fc2 then
             addId(fc2.resolvedSid)
             addId(fc2.baseSpellID)
+            addId(fc2.itemSpellID)
+            if fc2.equipSlot then addId(-fc2.equipSlot) end
         end
         -- "Proc into a second ability" talent forms (e.g. DH Reap 1226019/1225826)
         -- share a GetBaseSpell base (344862) with the configured spell, but that's
@@ -227,6 +230,7 @@ local function ResolveSpellSettingsUncached(frame, sid2, sd2, barKey)
             fc2.ssIdsFor = sid2
             fc2.ssIdsRS = fc2.resolvedSid
             fc2.ssIdsBS = fc2.baseSpellID
+            fc2.ssIdsItem = fc2.itemSpellID
         end
     end
 

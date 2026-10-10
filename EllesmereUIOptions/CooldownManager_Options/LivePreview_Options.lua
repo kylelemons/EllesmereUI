@@ -1470,6 +1470,22 @@ local function BuildCDMLivePreview(parent, yOff)
             local sdursUn   = sdUn and sdUn.spellDurations
             local groupsUn  = sdUn and sdUn.customSpellGroups
             local racialsUn = ns._myRacialsSet
+            -- Equipped item on-use spells are not class spellbook spells, so IsPlayerSpell
+            -- returns false. Collect equipped item spells so they are never flagged as unlearned.
+            local itemSpellsUn
+            local gis = C_Item and C_Item.GetItemSpell
+            if gis and GetInventoryItemID then
+                for slot = 1, 19 do
+                    local iid = GetInventoryItemID("player", slot)
+                    if iid then
+                        local _, sp = gis(iid)
+                        if type(sp) == "number" and sp > 0 then
+                            itemSpellsUn = itemSpellsUn or {}
+                            itemSpellsUn[sp] = true
+                        end
+                    end
+                end
+            end
             for _, id in ipairs(tracked) do
                 if type(id) == "number" and id > 0
                    and not (customUn and customUn[id])
@@ -1477,6 +1493,7 @@ local function BuildCDMLivePreview(parent, yOff)
                    and not (cdursUn and cdursUn[id])
                    and not (sdursUn and sdursUn[id])
                    and not (groupsUn and groupsUn[id])
+                   and not (itemSpellsUn and itemSpellsUn[id])
                    and not (IsPlayerSpell(id)
                         or IsPlayerSpell(NormalizeToBase(id))
                         or IsPlayerSpell(ResolveToLive(id))) then
