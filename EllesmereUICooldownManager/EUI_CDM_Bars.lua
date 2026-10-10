@@ -1624,26 +1624,46 @@ local function ApplyCDMTooltipState(barKey)
             end
         end
     end
-    -- Mouse-motion follows the tooltip setting. A motion-enabled icon with no unit becomes the
+    -- Mouse-motion and clicks follow the tooltip and allowPing settings. A motion-enabled icon with no unit becomes the
     -- mouseover-focus frame and steals hover from unit frames underneath (raid frame hover
     -- highlight and [@mouseover] casts die wherever a bar overlaps them), so icons may ONLY
-    -- capture the mouse when tooltips are on. Cursor-anchored bars stay fully mouse-through
+    -- capture the mouse when tooltips or pinging are on. Cursor-anchored bars stay fully mouse-through
     -- (SetFrameClickThrough owns their state); vis-hidden bars stay inert. Mouse calls on Blizzard CDM frames are blocked in combat.
     if not InCombatLockdown() then
         local frame = cdmBarFrames[barKey]
-        local wantHover = (enabled and frame and not frame._mouseTrack
+        local isCursorBar = frame and frame._mouseTrack
+        local wantClicks = (bd and bd.allowPing and frame and not isCursorBar and not frame._visHidden) and true or false
+        local wantHover = ((enabled or wantClicks) and frame and not isCursorBar
             and not frame._visHidden) and true or false
         local icons = cdmBarIcons[barKey]
         if icons then
             for i = 1, #icons do
                 local ic = icons[i]
-                if ic and ic.EnableMouseMotion then
-                    -- Invisible placeholders and Empty Slots are excluded even with
-                    -- tooltips on: a slot with no art has nothing to hover, so
-                    -- capturing here would only take mouseover away from whatever
-                    -- the bar sits over.
-                    ic:EnableMouseMotion(wantHover and not ic._isEmptySlotFrame
-                        and not IsPlaceholderRenderHidden(ic, bd))
+                if ic then
+                    local phHidden = IsPlaceholderRenderHidden(ic, bd)
+                    local emptyHidden = ic._isEmptySlotFrame
+                    if wantClicks and not phHidden and not emptyHidden then
+                        ic:EnableMouse(true)
+                        if ic.SetMouseClickEnabled then ic:SetMouseClickEnabled(false) end
+                        if ic.EnableMouseMotion then ic:EnableMouseMotion(true) end
+                        if ic.SetPassThroughButtons then
+                            pcall(ic.SetPassThroughButtons, ic, "LeftButton", "RightButton", "MiddleButton", "Button4", "Button5")
+                        end
+                        if ic.Cooldown then
+                            ic.Cooldown:EnableMouse(false)
+                            if ic.Cooldown.SetMouseClickEnabled then ic.Cooldown:SetMouseClickEnabled(false) end
+                            if ic.Cooldown.SetMouseMotionEnabled then ic.Cooldown:SetMouseMotionEnabled(false) end
+                        end
+                    else
+                        ic:EnableMouse(false)
+                        -- Invisible placeholders and Empty Slots are excluded even with
+                        -- tooltips on: a slot with no art has nothing to hover, so
+                        -- capturing here would only take mouseover away from whatever
+                        -- the bar sits over.
+                        if ic.EnableMouseMotion then
+                            ic:EnableMouseMotion((wantHover and not phHidden and not emptyHidden) and true or false)
+                        end
+                    end
                 end
             end
         end

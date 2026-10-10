@@ -201,6 +201,9 @@ ApplyShapeToCDMIcon = function(icon, shape, barData, ssb)
     if not ifc.shapeBorderFrame then
         local sbf = CreateFrame("Frame", nil, icon)
         sbf:SetAllPoints(icon)
+        sbf:EnableMouse(false)
+        if sbf.SetMouseClickEnabled then sbf:SetMouseClickEnabled(false) end
+        if sbf.SetMouseMotionEnabled then sbf:SetMouseMotionEnabled(false) end
         sbf:SetFrameLevel(icon:GetFrameLevel() + 2)
         ifc.shapeBorderFrame = sbf
     end
