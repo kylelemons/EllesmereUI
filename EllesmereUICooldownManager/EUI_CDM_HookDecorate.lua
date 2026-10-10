@@ -149,6 +149,9 @@ local function DecorateFrame(frame, barData)
         if not fd.borderFrame then
             local bf = CreateFrame("Frame", nil, frame)
             bf:SetAllPoints(frame)
+            bf:EnableMouse(false)
+            if bf.SetMouseClickEnabled then bf:SetMouseClickEnabled(false) end
+            if bf.SetMouseMotionEnabled then bf:SetMouseMotionEnabled(false) end
             fd.borderFrame = bf
         end
         local brdR, brdG, brdB = barData.borderR or 0, barData.borderG or 0, barData.borderB or 0

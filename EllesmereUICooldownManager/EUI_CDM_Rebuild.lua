@@ -241,12 +241,29 @@ _CDMApplyVisibility = function()
                             local phHidden = IsPlaceholderRenderHidden(ic, barData)
                             -- EnableMouse/EnableMouseMotion are protected on Blizzard CDM frames; skip during combat to avoid ADDON_ACTION_BLOCKED when dismounting mid-combat.
                             if not icCombat2 then
-                                ic:EnableMouse(false)
-                                -- Same mouseover-stealing rule as the container above: icons may only
-                                -- capture mouse motion when this bar's tooltips are on, and never on cursor-tracked bars (those must stay fully click-AND-motion-through).
-                                -- An invisible placeholder never captures: there is nothing drawn to hover.
-                                if ic.EnableMouseMotion then
-                                    ic:EnableMouseMotion((barData.showTooltip and not frame._mouseTrack and not phHidden) and true or false)
+                                local isCursorBar = frame._mouseTrack
+                                local wantClicks = barData.allowPing and not isCursorBar and not phHidden
+                                local wantHover = (barData.showTooltip or wantClicks) and not isCursorBar and not phHidden
+                                if wantClicks then
+                                    ic:EnableMouse(true)
+                                    if ic.SetMouseClickEnabled then ic:SetMouseClickEnabled(false) end
+                                    if ic.EnableMouseMotion then ic:EnableMouseMotion(true) end
+                                    if ic.SetPassThroughButtons then
+                                        pcall(ic.SetPassThroughButtons, ic, "LeftButton", "RightButton", "MiddleButton", "Button4", "Button5")
+                                    end
+                                    if ic.Cooldown then
+                                        ic.Cooldown:EnableMouse(false)
+                                        if ic.Cooldown.SetMouseClickEnabled then ic.Cooldown:SetMouseClickEnabled(false) end
+                                        if ic.Cooldown.SetMouseMotionEnabled then ic.Cooldown:SetMouseMotionEnabled(false) end
+                                    end
+                                else
+                                    ic:EnableMouse(false)
+                                    -- Same mouseover-stealing rule as the container above: icons may only
+                                    -- capture mouse motion when this bar's tooltips are on, and never on cursor-tracked bars (those must stay fully click-AND-motion-through).
+                                    -- An invisible placeholder never captures: there is nothing drawn to hover.
+                                    if ic.EnableMouseMotion then
+                                        ic:EnableMouseMotion(wantHover and true or false)
+                                    end
                                 end
                             end
                             local icfc = _ecmeFC[ic]
